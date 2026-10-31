@@ -87,7 +87,24 @@ export function MerchantProjectsV13({approved}:{approved:boolean}){
     <div className="panel"><h3>我的需求申请</h3><div className="mp-list">{requests.map(r=><div className="mp-list-item" key={r.id}>
       <div><b>{r.title}</b><small>需求 #{r.id} · {r.video_count} 条 · {r.aspect_ratio} · {day(r.created_at)}</small><small>{requestNames[r.status]||r.status}{r.staff_note?` · 工作人员回复：${r.staff_note}`:""}</small></div>
       <button className="secondary-btn" onClick={()=>{setActiveRequest(r.id);refreshReqFiles(r.id).catch(e=>setError(e.message));}}>素材管理</button>
-      {r.linked_order_id&&<button className="textbtn" onClick={()=>{setSelected(r.linked_order_id);refreshDetail(r.linked_order_id).catch(e=>setError(e.message));}}>查看正式订单</button>}
+      {r.linked_order_id !== null && (
+  <button
+    className="textbtn"
+    onClick={() => {
+      const orderId = r.linked_order_id;
+
+      if (orderId === null) return;
+
+      setSelected(orderId);
+
+      refreshDetail(orderId).catch(e =>
+        setError(e.message)
+      );
+    }}
+  >
+    查看正式订单
+  </button>
+)}
     </div>)}{!requests.length&&<p className="muted">暂无需求，可点击“提交制作需求”开始。</p>}</div>
       {activeRequest&&<div className="mp-subpanel"><div className="mp-head"><h3>需求 #{activeRequest} 的原始素材</h3><button className="textbtn" onClick={()=>setActiveRequest(null)}>收起</button></div>
         <UploadBox endpoint={`/portal/project-requests/${activeRequest}/files`} label="上传需求附件（单文件≤100 MB）" disabled={!approved||requests.find(r=>r.id===activeRequest)?.status==="rejected"} onDone={()=>refreshReqFiles(activeRequest)}/>
