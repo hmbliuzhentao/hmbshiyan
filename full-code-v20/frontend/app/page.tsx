@@ -48,6 +48,14 @@ function homeForRole(role:string) {
   if(role==="super_admin" || role==="admin" || role==="manager" || role==="viewer") return "https://work.heimanbo.com";
   return "https://video.heimanbo.com";
 }
+function panelForRole(role:string):Exclude<Panel,"auth"> {
+  if(role==="merchant") return "merchant";
+  if(role==="super_admin" || role==="admin" || role==="manager" || role==="viewer") return "work";
+  return "video";
+}
+function isPreviewHost(host:string):boolean {
+  return host.toLowerCase()==="test-v2.heimanbo.com";
+}
 async function api<T=any>(path:string, init?:RequestInit):Promise<T> {
   const res=await fetch(`/api${path}`,{credentials:"include",...init});
   if(!res.ok) {
@@ -129,9 +137,16 @@ export default function Home() {
     try {
       const u=await api<User>("/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({identifier,password})});
       setUser(u);
-      const destination=homeForRole(u.role);
-      if(panel==="auth" || !destination.includes(window.location.hostname)) window.location.href=destination;
-      else {setPanel(detectPanel(window.location.hostname));setSection("overview");}
+      const host=window.location.hostname.toLowerCase();
+      if(isPreviewHost(host)) {
+        const nextPanel=panelForRole(u.role);
+        setPanel(nextPanel);
+        setSection(nextPanel==="merchant"?"my-orders":nextPanel==="video"?"tasks":"overview");
+      } else {
+        const destination=homeForRole(u.role);
+        if(panel==="auth" || !destination.includes(host)) window.location.href=destination;
+        else {setPanel(detectPanel(host));setSection("overview");}
+      }
     } catch(e) {setError((e as Error).message);}
     finally {setLoading(false);}
   }
@@ -147,7 +162,12 @@ export default function Home() {
     try {
       const result=await api<{user:User;merchant_status:string}>("/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(reg)});
       setUser(result.user);setNotice("注册成功，商家资料等待管理员审核。");
-      window.location.href="https://merchant.heimanbo.com";
+      if(isPreviewHost(window.location.hostname)) {
+        setPanel("merchant");
+        setSection("my-orders");
+      } else {
+        window.location.href="https://merchant.heimanbo.com";
+      }
     } catch(e){setError((e as Error).message);}
     finally{setLoading(false);}
   }
@@ -180,7 +200,14 @@ export default function Home() {
   }
   async function logout() {
     try{await api("/auth/logout",{method:"POST"});}catch{}
-    setUser(null);window.location.href="https://auth.heimanbo.com";
+    setUser(null);
+    if(isPreviewHost(window.location.hostname)) {
+      setPanel("auth");
+      setSection("overview");
+      setData(null);
+    } else {
+      window.location.href="https://auth.heimanbo.com";
+    }
   }
   async function createItem(e:FormEvent) {
     e.preventDefault();if(!selected?.kind)return;
