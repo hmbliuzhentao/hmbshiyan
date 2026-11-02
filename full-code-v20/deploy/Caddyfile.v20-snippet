@@ -1,0 +1,35 @@
+# Add these site blocks to the EXISTING Caddyfile.
+# Do not start a second Caddy container or bind another 80/443 listener.
+# The existing Caddy container must be attached to PROXY_NETWORK.
+
+(heimanbo_v20_panel) {
+    encode zstd gzip
+    request_body {
+        max_size 110MB
+    }
+    @api path /api/*
+    handle @api {
+        reverse_proxy heimanbo-v20-backend:8000
+    }
+    handle {
+        reverse_proxy heimanbo-v20-frontend:3000
+    }
+}
+
+auth.heimanbo.com, work.heimanbo.com, video.heimanbo.com, merchant.heimanbo.com, system.heimanbo.com, test-v2.heimanbo.com {
+    import heimanbo_v20_panel
+}
+
+api.heimanbo.com {
+    encode zstd gzip
+    reverse_proxy heimanbo-v20-backend:8000
+}
+
+media.heimanbo.com {
+    encode zstd gzip
+    reverse_proxy heimanbo-v20-backend:8000
+}
+
+heimanbo.com, www.heimanbo.com {
+    redir https://auth.heimanbo.com{uri} 302
+}

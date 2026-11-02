@@ -1,0 +1,19 @@
+
+# Private configuration
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Build and private files
+**/node_modules/
+**/.next/
+**/__pycache__/
+**/*.pyc
+**/*.pem
+**/*.key
+**/*credentials*
+/full-code-v20/uploads/
+/full-code-v20/videos/
