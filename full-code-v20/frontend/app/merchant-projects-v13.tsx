@@ -94,7 +94,7 @@ export function MerchantProjectsV13({approved}:{approved:boolean}){
         <FileList files={reqFiles}/></div>}
     </div>
     <div className="panel"><h3>我的制作订单</h3><div className="mp-list">{projects.map(p=><div className="mp-list-item" key={p.id}>
-      <div><b>{p.title}</b><small>{p.order_no} · {stageNames[p.stage]||p.stage} · {p.progress}%</small><small>订单金额 {yuan(p.amount_cents)} · 已收 {yuan(p.paid_cents)} · 待收 {yuan(p.outstanding_cents)}</small></div>
+      <div><b>{p.title}</b><small>{p.order_no} · {stageNames[p.stage]||p.stage} · {p.progress}%</small>{admin&&<small>订单金额 {yuan(p.amount_cents)} · 已收 {yuan(p.paid_cents)} · 待收 {yuan(p.outstanding_cents)}</small>}</div>
       <button className="secondary-btn" onClick={()=>{setSelected(p.id);refreshDetail(p.id).catch(e=>setError(e.message));}}>查看进度 / 验收</button>
     </div>)}{!projects.length&&<p className="muted">暂无正式制作订单。内部确认报价后，正式订单会显示在这里。</p>}</div></div>
     {detail&&selected&&<div className="panel mp-detail"><div className="mp-head"><div><h3>{detail.title}</h3><p className="muted">{detail.order_no} · {stageNames[detail.stage]||detail.stage} · {detail.progress}%</p></div><button className="secondary-btn" onClick={()=>{setDetail(null);setSelected(null);}}>关闭</button></div>
@@ -112,7 +112,7 @@ export function MerchantProjectsV13({approved}:{approved:boolean}){
   </section>;
 }
 
-export function StaffProjectsV13({admin}:{admin:boolean}){
+export function StaffProjectsV13({admin,canProduce=admin}:{admin:boolean;canProduce?:boolean}){
   const [requests,setRequests]=useState<RequestItem[]>([]),[projects,setProjects]=useState<Project[]>([]),[detail,setDetail]=useState<Detail|null>(null);
   const [reqId,setReqId]=useState<number|null>(null),[reqFiles,setReqFiles]=useState<Asset[]>([]);
   const [amount,setAmount]=useState("0"),[cost,setCost]=useState("0"),[due,setDue]=useState(""),[staffNote,setStaffNote]=useState("");
@@ -160,7 +160,7 @@ export function StaffProjectsV13({admin}:{admin:boolean}){
       <button className="secondary-btn" onClick={()=>openProject(p.id).catch(e=>setError(e.message))}>处理项目</button>
     </div>)}{!projects.length&&<p className="muted">暂无已关联的商家订单</p>}</div></div>
     {detail&&<div className="panel mp-detail"><div className="mp-head"><div><h3>{detail.title}</h3><p className="muted">{detail.order_no}</p></div><button className="secondary-btn" onClick={()=>setDetail(null)}>关闭</button></div>
-      {admin&&!detail.accepted_at&&detail.status!=="cancelled"&&<form className="mp-admin-form" onSubmit={saveStage}>
+      {canProduce&&!detail.accepted_at&&detail.status!=="cancelled"&&<form className="mp-admin-form" onSubmit={saveStage}>
         <label>制作阶段<select value={stage} onChange={e=>setStage(e.target.value)}>{Object.entries(stageNames).filter(([k])=>k!=="delivered").map(([k,n])=><option key={k} value={k}>{n}</option>)}</select></label>
         <label>完成比例 %<input type="number" min="0" max="100" value={progress} onChange={e=>setProgress(e.target.value)}/></label>
         <label>对商家公开的进展说明<textarea maxLength={2000} rows={2} value={clientNote} onChange={e=>setClientNote(e.target.value)}/></label>
@@ -168,12 +168,12 @@ export function StaffProjectsV13({admin}:{admin:boolean}){
       </form>}
       {detail.accepted_at&&<div className="success">客户已于 {day(detail.accepted_at)} 确认验收</div>}
       <h3>文件管理</h3><FileList files={detail.files}/>
-      {admin&&!detail.accepted_at&&!(["delivered","closed","cancelled"].includes(detail.status))&&<>
+      {canProduce&&!detail.accepted_at&&!(["delivered","closed","cancelled"].includes(detail.status))&&<>
         <UploadBox label="上传试看视频（草稿）" endpoint={`/projects/${detail.id}/files`} kind="draft" onDone={()=>openProject(detail.id)}/>
         <UploadBox label="上传正式交付成品" endpoint={`/projects/${detail.id}/files`} kind="final" onDone={()=>openProject(detail.id)}/>
       </>}
       <h3>客户提出的修改意见</h3>{detail.revisions.map(r=><div className="mp-note" key={r.id}><b>#{r.id} {r.status==="open"?"待处理":"已处理"}</b><p>{r.content}</p>
-        {r.staff_reply&&<p>回复：{r.staff_reply}</p>}{admin&&r.status==="open"&&<div className="mp-inline"><input maxLength={2000} value={resolveText[r.id]||""} onChange={e=>setResolveText({...resolveText,[r.id]:e.target.value})} placeholder="填写处理结果"/><button className="secondary-btn" disabled={busy||!(resolveText[r.id]||"").trim()} onClick={()=>resolve(r.id)}>标记已完成</button></div>}
+        {r.staff_reply&&<p>回复：{r.staff_reply}</p>}{canProduce&&r.status==="open"&&<div className="mp-inline"><input maxLength={2000} value={resolveText[r.id]||""} onChange={e=>setResolveText({...resolveText,[r.id]:e.target.value})} placeholder="填写处理结果"/><button className="secondary-btn" disabled={busy||!(resolveText[r.id]||"").trim()} onClick={()=>resolve(r.id)}>标记已完成</button></div>}
       </div>)}{!detail.revisions.length&&<p className="muted">暂无修改意见</p>}
       <h3>项目处理记录</h3>{detail.activity.map((e,i)=><p className="mp-note" key={i}>{day(e.created_at)} · {e.detail}</p>)}
     </div>}
