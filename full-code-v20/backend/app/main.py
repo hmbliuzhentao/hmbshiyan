@@ -453,7 +453,7 @@ def delete_video(video_id: str, user: User = Depends(require_staff), db: Session
     v = db.get(Video, video_id)
     if not v:
         raise HTTPException(404, "视频不存在")
-    if user.role != "admin" and v.created_by != user.id:
+    if user.role not in ("admin", "super_admin") and v.created_by != user.id:
         raise HTTPException(403, "没有权限删除此视频")
     from .publish_tasks_v14 import PublishVideo
     if db.scalar(select(PublishVideo.id).where(PublishVideo.video_id == v.id)):
