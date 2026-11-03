@@ -20,7 +20,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from .main import (
     Base, BusinessOrder, Merchant, User, current_user, db_session, get_merchant_of_user,
-    require_staff, require_admin, payment_total, portal_order_out, yuan_to_cents, iso, order_event,
+    require_staff, require_admin, require_production, payment_total, portal_order_out, yuan_to_cents, iso, order_event,
 )
 
 router = APIRouter(prefix="/api")
@@ -184,7 +184,9 @@ def accessible_order(db: Session, order_id: int, user: User, *, write: bool = Fa
             raise HTTPException(403, "商家账号已暂停")
         if write:
             require_approved(m)
-    elif user.role not in ("admin", "viewer"):
+    elif user.role not in ("super_admin", "admin", "manager", "viewer", "producer", "editor") or (
+        write and user.role not in ("super_admin", "admin", "producer", "editor")
+    ):
         raise HTTPException(403, "无权限")
     return order
 
@@ -319,7 +321,16 @@ def merchant_projects(user: User = Depends(current_user), db: Session = Depends(
 def staff_projects(user: User = Depends(require_staff), db: Session = Depends(db_session)):
     orders = db.scalars(select(BusinessOrder).where(BusinessOrder.merchant_id.is_not(None))
         .order_by(BusinessOrder.id.desc()).limit(200)).all()
-    return [project_out(db, o) for o in orders]
+    return [staff_project_out(db, o, user) for o in orders]
+
+
+def staff_project_out(db: Session, order: BusinessOrder, user: User):
+    data = project_out(db, order)
+    # Production accounts have no access to pricing or settlement figures.
+    if user.role in ("producer", "editor"):
+        for field in ("amount_cents", "paid_cents", "outstanding_cents"):
+            data.pop(field, None)
+    return data
 
 
 @router.get("/portal/projects/{order_id}")
@@ -329,11 +340,16 @@ def merchant_project_detail(order_id: int, user: User = Depends(current_user), d
 
 @router.get("/staff/projects/{order_id}")
 def staff_project_detail(order_id: int, user: User = Depends(require_staff), db: Session = Depends(db_session)):
-    return project_detail(db, accessible_order(db, order_id, user))
+    order = accessible_order(db, order_id, user)
+    data = project_detail(db, order)
+    if user.role in ("producer", "editor"):
+        for field in ("amount_cents", "paid_cents", "outstanding_cents"):
+            data.pop(field, None)
+    return data
 
 
 @router.post("/staff/projects/{order_id}/progress")
-def set_project_stage(order_id: int, payload: ProgressIn, user: User = Depends(require_admin), db: Session = Depends(db_session)):
+def set_project_stage(order_id: int, payload: ProgressIn, user: User = Depends(require_production), db: Session = Depends(db_session)):
     order = accessible_order(db, order_id, user)
     if order.status == "cancelled":
         raise HTTPException(409, "已取消订单不能修改进度")
@@ -389,7 +405,7 @@ def request_revision(order_id: int, payload: RevisionIn, user: User = Depends(cu
 
 @router.post("/staff/projects/{order_id}/revisions/{revision_id}/resolve")
 def resolve_revision(order_id: int, revision_id: int, payload: ResolveIn,
-                     user: User = Depends(require_admin), db: Session = Depends(db_session)):
+                     user: User = Depends(require_production), db: Session = Depends(db_session)):
     accessible_order(db, order_id, user)
     r = db.scalar(select(ProjectRevision).where(ProjectRevision.id == revision_id,
         ProjectRevision.order_id == order_id).with_for_update())
@@ -533,8 +549,8 @@ async def upload_project_file(order_id: int, kind: str = Form(...), file: Upload
         raise HTTPException(400, "文件类型不合法")
     if user.role == "merchant" and kind != "material":
         raise HTTPException(403, "商家只允许上传需求素材")
-    if user.role == "viewer":
-        raise HTTPException(403, "仅管理员可上传制作文件")
+    if user.role not in ("super_admin", "admin", "producer", "editor", "merchant"):
+        raise HTTPException(403, "需要拍摄剪辑或管理员账号上传制作文件")
     return await save_asset(file, merchant_id=order.merchant_id, request_id=None,
                             order_id=order_id, kind=kind, user=user, db=db)
 
@@ -557,7 +573,7 @@ def download_project_file(file_id: str, user: User = Depends(current_user), db: 
                 raise HTTPException(404, "文件不存在")
         else:
             raise HTTPException(404, "文件不存在")
-    elif user.role not in ("admin", "viewer"):
+    elif user.role not in ("super_admin", "admin", "manager", "viewer", "producer", "editor"):
         raise HTTPException(403, "无权限")
     target = ASSET_ROOT / asset.storage_key
     if not target.is_file():

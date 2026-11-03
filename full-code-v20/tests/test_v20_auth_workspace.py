@@ -85,3 +85,39 @@ assert r.status_code==200,r.text
 r=client.post("/api/auth/login",json={"identifier":"one+bound@example.com","password":"new-merchant-pass-12345"})
 assert r.status_code==200,r.text
 print("PASS V2 OTP registration, contact binding, password reset, sessions and merchant tenant isolation")
+# Account creation is limited to three types: admin, producer, merchant.
+# Merchant accounts have their own registration flow; admins cannot create them in /users.
+admin_client=TestClient(app)
+r=admin_client.post("/api/auth/login",json={"identifier":"root@example.com","password":"test-only-admin-password-123"})
+assert r.status_code==200,r.text
+r=admin_client.post("/api/users",json={"email":"camera@example.com","name":"Camera and Editing",
+                                        "password":"test-only-producer-password","role":"producer"})
+assert r.status_code==201 and r.json()["role"]=="producer",r.text
+producer_id=r.json()["id"]
+for invalid in ("manager","viewer","editor","merchant","super_admin"):
+ r=admin_client.post("/api/users",json={"email":f"invalid-{invalid}@example.com","name":"Invalid role",
+                                         "password":"test-only-producer-password","role":invalid})
+ assert r.status_code==400,(invalid,r.text)
+r=admin_client.patch(f"/api/users/{producer_id}/role",json={"role":"admin"})
+assert r.status_code==200 and r.json()["role"]=="admin",r.text
+r=admin_client.patch(f"/api/users/{producer_id}/role",json={"role":"producer"})
+assert r.status_code==200 and r.json()["role"]=="producer",r.text
+r=admin_client.patch("/api/users/1/role",json={"role":"producer"})
+assert r.status_code==403,r.text  # merchant cannot become internal staff
+producer_client=TestClient(app)
+r=producer_client.post("/api/auth/login",json={"identifier":"camera@example.com",
+                                              "password":"test-only-producer-password"})
+assert r.status_code==200,r.text
+for path in ("/api/users","/api/orders/stats","/api/orders","/api/merchants"):
+ r=producer_client.get(path)
+ assert r.status_code==403,(path,r.text)
+r=producer_client.get("/api/staff/projects")
+assert r.status_code==200,r.text
+r=producer_client.get("/api/staff/publish-tasks")
+assert r.status_code==200,r.text
+r=producer_client.post("/api/workspace/script",json={"title":"Production script","body":"Production team only"})
+assert r.status_code==201,r.text
+r=producer_client.get("/api/portal/orders")
+assert r.status_code==403,r.text
+print("PASS V2 three-account model and producer/admin/merchant authorization")
+
