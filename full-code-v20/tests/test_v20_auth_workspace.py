@@ -24,7 +24,7 @@ except ModuleNotFoundError:
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"backend"))
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from app.main import app, Base, engine, SessionLocal, User, Merchant, MerchantAccount
+from app.main import app, Base, engine, SessionLocal, User, Merchant, MerchantAccount, PASSWORD
 from app.v20 import WorkspaceItem, UserSession
 Base.metadata.create_all(engine)
 client=TestClient(app)
@@ -37,7 +37,7 @@ assert r.json()["user"]["role"]=="merchant"
 with SessionLocal() as db:
  m1=db.scalar(select(Merchant).where(Merchant.name=="Merchant One LLC"))
  m1.status="approved"
- u2=User(email="two@example.com",name="Merchant Two",role="merchant",password_hash="test-hash:merchant-pass-12345")
+ u2=User(email="two@example.com",name="Merchant Two",role="merchant",password_hash=PASSWORD.hash("merchant-pass-12345"))
  db.add(u2);db.flush()
  m2=Merchant(name="Merchant Two LLC",status="approved")
  db.add(m2);db.flush()
