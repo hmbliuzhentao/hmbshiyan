@@ -24,7 +24,7 @@ except ModuleNotFoundError:
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"backend"))
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from app.main import app, Base, engine, SessionLocal, User, Merchant, MerchantAccount
+from app.main import app, Base, engine, SessionLocal, User, Merchant, MerchantAccount, PASSWORD
 from app.v20 import WorkspaceItem, UserSession
 Base.metadata.create_all(engine)
 client=TestClient(app)
@@ -36,13 +36,23 @@ assert r.status_code==201,r.text
 assert r.json()["user"]["role"]=="merchant"
 with SessionLocal() as db:
  m1=db.scalar(select(Merchant).where(Merchant.name=="Merchant One LLC"))
- m1.status="approved"
- u2=User(email="two@example.com",name="Merchant Two",role="merchant",password_hash="test-hash:merchant-pass-12345")
+ m1_id=m1.id
+ admin=User(email="root@example.com",name="System Admin",role="admin",
+            password_hash=PASSWORD.hash("test-only-admin-password-123"))
+ db.add(admin)
+ u2=User(email="two@example.com",name="Merchant Two",role="merchant",password_hash=PASSWORD.hash("merchant-pass-12345"))
  db.add(u2);db.flush()
  m2=Merchant(name="Merchant Two LLC",status="approved")
  db.add(m2);db.flush()
  db.add(MerchantAccount(merchant_id=m2.id,user_id=u2.id))
  db.commit()
+# administrator must explicitly approve a self-registered merchant before ordering.
+r=client.post("/api/auth/login",json={"identifier":"root@example.com","password":"test-only-admin-password-123"})
+assert r.status_code==200,r.text
+r=client.post(f"/api/merchants/{m1_id}/review",json={"decision":"approved","reason":"verified test merchant"})
+assert r.status_code==200 and r.json()["status"]=="approved",r.text
+r=client.post(f"/api/merchants/{m1_id}/review",json={"decision":"rejected","reason":"after approval"})
+assert r.status_code==409,r.text
 # first merchant creates a product item
 r=client.post("/api/auth/login",json={"identifier":"one@example.com","password":"merchant-pass-12345"})
 assert r.status_code==200,r.text

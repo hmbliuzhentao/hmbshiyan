@@ -453,7 +453,7 @@ def delete_video(video_id: str, user: User = Depends(require_staff), db: Session
     v = db.get(Video, video_id)
     if not v:
         raise HTTPException(404, "视频不存在")
-    if user.role != "admin" and v.created_by != user.id:
+    if user.role not in ("admin", "super_admin") and v.created_by != user.id:
         raise HTTPException(403, "没有权限删除此视频")
     from .publish_tasks_v14 import PublishVideo
     if db.scalar(select(PublishVideo.id).where(PublishVideo.video_id == v.id)):
@@ -978,8 +978,33 @@ def legacy_submit_disabled(merchant_id: int, user: User = Depends(require_admin)
 
 
 @app.post("/api/merchants/{merchant_id}/review")
-def legacy_review_disabled(merchant_id: int, user: User = Depends(require_admin)):
-    raise HTTPException(410, "V1.4 已取消商家资质审核，请使用合作账号管理")
+def review_merchant_account(merchant_id: int, payload: MerchantReviewIn,
+                            admin: User = Depends(require_admin), db: Session = Depends(db_session)):
+    """Review V2 merchant self-registration. Only administrators can grant access."""
+    if payload.decision not in {"approved", "changes_requested", "rejected"}:
+        raise HTTPException(400, "审核结果必须是通过、补充资料或拒绝")
+    reason = payload.reason.strip()
+    if payload.decision != "approved" and not reason:
+        raise HTTPException(400, "退回或拒绝申请时必须填写原因")
+    merchant = db.scalar(select(Merchant).where(Merchant.id == merchant_id).with_for_update())
+    if not merchant:
+        raise HTTPException(404, "商家不存在")
+    if merchant.status == "suspended":
+        raise HTTPException(409, "已暂停合作的商家请使用恢复合作功能")
+    if merchant.status == "approved" and payload.decision != "approved":
+        raise HTTPException(409, "已合作商家请使用暂停合作功能")
+    previous = merchant.status
+    merchant.status = payload.decision
+    merchant.review_reason = reason
+    merchant.reviewed_by = admin.id
+    merchant.reviewed_at = datetime.now(timezone.utc)
+    db.add(MerchantReviewEvent(
+        merchant_id=merchant.id, actor_id=admin.id,
+        old_status=previous, new_status=merchant.status, note=reason
+    ))
+    db.commit()
+    db.refresh(merchant)
+    return merchant_to_dict(merchant, db, staff=True)
 
 
 class MerchantAccessIn(BaseModel):

@@ -1,0 +1,44 @@
+name: V2.0 business modules checks
+
+on:
+  push:
+    branches:
+      - "feature/v20-business-modules-*"
+  pull_request:
+    branches:
+      - v2.0-deploy
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: full-code-v20/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npx tsc --noEmit --pretty false
+      - name: Build Next.js frontend
+        run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r full-code-v20/backend/requirements.txt httpx2
+      - name: Test V2 authentication and tenant isolation
+        run: python full-code-v20/tests/test_v20_auth_workspace.py
+      - name: Test merchant order workflows
+        run: python full-code-v20/tests/test_merchant_order_v15.py
