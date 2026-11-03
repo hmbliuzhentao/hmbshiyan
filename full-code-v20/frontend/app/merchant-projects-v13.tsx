@@ -94,7 +94,7 @@ export function MerchantProjectsV13({approved}:{approved:boolean}){
         <FileList files={reqFiles}/></div>}
     </div>
     <div className="panel"><h3>我的制作订单</h3><div className="mp-list">{projects.map(p=><div className="mp-list-item" key={p.id}>
-      <div><b>{p.title}</b><small>{p.order_no} · {stageNames[p.stage]||p.stage} · {p.progress}%</small>{admin&&<small>订单金额 {yuan(p.amount_cents)} · 已收 {yuan(p.paid_cents)} · 待收 {yuan(p.outstanding_cents)}</small>}</div>
+      <div><b>{p.title}</b><small>{p.order_no} · {stageNames[p.stage]||p.stage} · {p.progress}%</small><small>订单金额 {yuan(p.amount_cents)} · 已收 {yuan(p.paid_cents)} · 待收 {yuan(p.outstanding_cents)}</small></div>
       <button className="secondary-btn" onClick={()=>{setSelected(p.id);refreshDetail(p.id).catch(e=>setError(e.message));}}>查看进度 / 验收</button>
     </div>)}{!projects.length&&<p className="muted">暂无正式制作订单。内部确认报价后，正式订单会显示在这里。</p>}</div></div>
     {detail&&selected&&<div className="panel mp-detail"><div className="mp-head"><div><h3>{detail.title}</h3><p className="muted">{detail.order_no} · {stageNames[detail.stage]||detail.stage} · {detail.progress}%</p></div><button className="secondary-btn" onClick={()=>{setDetail(null);setSelected(null);}}>关闭</button></div>
