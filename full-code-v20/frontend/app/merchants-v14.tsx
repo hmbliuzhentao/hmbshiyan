@@ -8,6 +8,7 @@ type Detail=Merchant&{accounts:{id:number;email:string}[]};
 type Category={id:number;name:string};
 type Order={id:number;order_no:string;title:string;status:string;due_date:string|null};
 const initial=()=>({name:"",category_id:"",contact_name:"",phone:"",address:"",platform_url:"",introduction:""});
+const merchantStatus=(status:string)=>({pending:"待审核",approved:"合作中",changes_requested:"待补充资料",rejected:"已拒绝",suspended:"已暂停",draft:"草稿"} as Record<string,string>)[status]||status;
 async function api<T>(path:string,init?:RequestInit):Promise<T>{const r=await fetch(`/api${path}`,{credentials:"include",cache:"no-store",...init});if(!r.ok){const e=await r.json().catch(()=>({}));throw Error(typeof e.detail==="string"?e.detail:`请求失败 ${r.status}`);}return r.json()}
 const json=(v:unknown,method="POST"):RequestInit=>({method,headers:{"Content-Type":"application/json"},body:JSON.stringify(v)});
 
@@ -15,6 +16,7 @@ export function MerchantsPanelV14({admin}:{admin:boolean}){
   const [merchants,setMerchants]=useState<Merchant[]>([]),[cats,setCats]=useState<Category[]>([]),[detail,setDetail]=useState<Detail|null>(null);
   const [form,setForm]=useState(initial()),[mode,setMode]=useState<"new"|"edit"|null>(null),[search,setSearch]=useState("");
   const [account,setAccount]=useState({name:"",email:"",password:""}),[busy,setBusy]=useState(false),[error,setError]=useState(""),[ok,setOk]=useState("");
+  const [review,setReview]=useState({decision:"approved",reason:""});
   const load=async()=>{const [m,c]=await Promise.all([api<{items:Merchant[]}>(`/merchants?limit=100&q=${encodeURIComponent(search)}`),api<Category[]>("/merchant-categories")]);setMerchants(m.items);setCats(c);};
   useEffect(()=>{load().catch(e=>setError(e.message));},[search]);
   const view=async(id:number)=>{setDetail(await api<Detail>(`/merchants/${id}`));};
@@ -22,17 +24,26 @@ export function MerchantsPanelV14({admin}:{admin:boolean}){
   const save=async(e:FormEvent)=>{e.preventDefault();await act(async()=>{
     const payload={...form,category_id:form.category_id?Number(form.category_id):null};
     if(mode==="new")await api("/merchants",json(payload));else if(detail)await api(`/merchants/${detail.id}`,json(payload,"PATCH"));
-    setMode(null);setForm(initial());},"商家资料已保存，无需资质审核即可关联订单");};
+    setMode(null);setForm(initial());},"商家资料已保存");};
   const createAccount=async(e:FormEvent)=>{e.preventDefault();if(!detail)return;await act(async()=>{
     await api(`/merchants/${detail.id}/accounts`,json(account));setAccount({name:"",email:"",password:""});},"商家登录账号已创建，请安全地向客户交付密码");};
-  return <div><div className="heading"><h1>商家与合作账号</h1><p>这里只维护合作商家和登录权限。商家不需要申请资质审核；商家负责审核我们交付的产品视频。</p></div>
+  const reviewMerchant=async(e:FormEvent)=>{e.preventDefault();if(!detail)return;await act(async()=>{
+    await api(`/merchants/${detail.id}/review`,json(review));setReview({decision:"approved",reason:""});},"商家审核结果已保存");};
+  return <div><div className="heading"><h1>商家与合作账号</h1><p>管理合作商家、注册审核及商家登录权限。通过审核的商家才能创建制作订单与审核视频。</p></div>
     {error&&<div className="error">{error}</div>}{ok&&<div className="success">{ok}</div>}
     <div className="panel"><div className="toolbar"><input placeholder="搜索商家名称" value={search} onChange={e=>setSearch(e.target.value)}/>{admin&&<button className="primary" onClick={()=>{setMode("new");setDetail(null);setForm(initial());}}>＋ 新建商家</button>}</div>
-      <div className="tablewrap"><table><thead><tr><th>商家名称</th><th>行业</th><th>联系人</th><th>合作状态</th><th>操作</th></tr></thead><tbody>{merchants.map(m=><tr key={m.id}><td>{m.name}</td><td>{m.category_name}</td><td>{m.contact_name||"—"}</td><td>{m.status==="suspended"?"已暂停":"合作中"}</td><td><button className="textbtn" onClick={()=>view(m.id)}>查看 / 设置账号</button></td></tr>)}{!merchants.length&&<tr><td className="empty" colSpan={5}>暂无商家。先新建商家，再将订单关联到商家。</td></tr>}</tbody></table></div>
+      <div className="tablewrap"><table><thead><tr><th>商家名称</th><th>行业</th><th>联系人</th><th>合作状态</th><th>操作</th></tr></thead><tbody>{merchants.map(m=><tr key={m.id}><td>{m.name}</td><td>{m.category_name}</td><td>{m.contact_name||"—"}</td><td><span className={`merchant-status ${m.status}`}>{merchantStatus(m.status)}</span></td><td><button className="textbtn" onClick={()=>view(m.id)}>查看 / 设置账号</button></td></tr>)}{!merchants.length&&<tr><td className="empty" colSpan={5}>暂无商家。先新建商家，再将订单关联到商家。</td></tr>}</tbody></table></div>
     </div>
     {detail&&mode===null&&<div className="panel"><div className="toolbar"><h3>{detail.name} · 商家账号</h3><button className="secondary-btn" onClick={()=>setDetail(null)}>关闭</button></div>
-      <p>联系人：{detail.contact_name||"—"}　电话：{detail.phone||"—"}　合作状态：{detail.status==="suspended"?"已暂停":"合作中"}</p>
+      <p>联系人：{detail.contact_name||"—"}　电话：{detail.phone||"—"}　合作状态：{merchantStatus(detail.status)}</p>
       <p className="muted">发布任务关联的订单属于该商家时，商家账号才能预览并审核对应视频；其他商家不可查看。</p>
+      {admin&&["pending","changes_requested","rejected"].includes(detail.status)&&<form className="merchant-review panel" onSubmit={reviewMerchant}>
+        <h4>注册申请审核</h4>
+        <p className="muted">申请尚未通过时，商家不能创建新订单。</p>
+        <label>审核决定<select value={review.decision} onChange={e=>setReview({...review,decision:e.target.value})}><option value="approved">通过申请</option><option value="changes_requested">要求补充资料</option><option value="rejected">拒绝申请</option></select></label>
+        <label>审核说明<textarea rows={3} required={review.decision!=="approved"} value={review.reason} onChange={e=>setReview({...review,reason:e.target.value})} placeholder="未通过申请时请填写原因"/></label>
+        <button className="primary" disabled={busy}>{busy?"处理中…":"保存审核决定"}</button>
+      </form>}
       {admin&&<><div className="toolbar"><button className="secondary-btn" onClick={()=>{setMode("edit");setForm({...initial(),...detail,category_id:detail.category_id?String(detail.category_id):""});}}>编辑资料</button>
         <button className="secondary-btn" disabled={busy} onClick={()=>act(()=>api(`/merchants/${detail.id}/access`,json({suspended:detail.status!=="suspended"})),detail.status==="suspended"?"已恢复商家合作":"已暂停商家登录权限")}>{detail.status==="suspended"?"恢复合作":"暂停合作"}</button></div>
         <h4>商家登录账户</h4>{detail.accounts.map(a=><p key={a.id}>{a.email}</p>)}
@@ -59,9 +70,10 @@ export function MerchantPortalV14({name,onLogout}:{name:string;onLogout:()=>void
     <main className="merchant-portal-content"><div className="heading"><h1>{profile?.name||"商家工作台"}</h1><p>你发布订单与视频任务，黑曼波团队负责制作交付；你负责审核视频并登记发布。</p></div>
       {error&&<div className="error">{error}</div>}
       <div className="pub-tabs"><button className={tab==="create"?"active":""} onClick={()=>setTab("create")}>发布订单</button><button className={tab==="review"?"active":""} onClick={()=>setTab("review")}>发布任务 / 审核视频</button><button className={tab==="orders"?"active":""} onClick={()=>setTab("orders")}>我的合作订单</button><button className={tab==="profile"?"active":""} onClick={()=>setTab("profile")}>合作资料</button></div>
-      {tab==="create"&&<MerchantProjectsV13 approved={!!profile&&profile.status!=="suspended"}/>}
+      {profile&&profile.status!=="approved"&&<div className="merchant-alert">当前商家状态：{merchantStatus(profile.status)}。审核通过之前无法发布制作订单或发布任务。</div>}
+      {tab==="create"&&<MerchantProjectsV13 approved={!!profile&&profile.status==="approved"}/>}
       {tab==="review"&&<MerchantPublishTasksV14/>}
       {tab==="orders"&&<div className="panel tablewrap"><table><thead><tr><th>订单编号</th><th>项目</th><th>制作状态</th><th>交付日期</th></tr></thead><tbody>{orders.map(o=><tr key={o.id}><td>{o.order_no}</td><td>{o.title}</td><td>{o.status}</td><td>{o.due_date||"—"}</td></tr>)}{!orders.length&&<tr><td colSpan={4} className="empty">暂无关联订单</td></tr>}</tbody></table></div>}
-      {tab==="profile"&&<div className="panel"><h3>合作资料</h3><p>商家名称：{profile?.name||"—"}</p><p>联系人：{profile?.contact_name||"—"}</p><p>联系方式：{profile?.phone||"—"}</p><p>合作状态：{profile?.status==="suspended"?"已暂停":"合作中"}</p><p className="muted">需要修改资料或账号，请联系黑曼波团队。不再需要商家资质申请或资质审核。</p></div>}
+      {tab==="profile"&&<div className="panel"><h3>合作资料</h3><p>商家名称：{profile?.name||"—"}</p><p>联系人：{profile?.contact_name||"—"}</p><p>联系方式：{profile?.phone||"—"}</p><p>合作状态：{merchantStatus(profile?.status||"")}</p><p className="muted">需要修改合作资料请联系黑曼波团队。账号为待审核状态时，请等待管理员审核。</p></div>}
     </main></div>;
 }
