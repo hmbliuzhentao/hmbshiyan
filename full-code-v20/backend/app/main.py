@@ -638,7 +638,7 @@ def order_event(db: Session, o: BusinessOrder, user: User, action: str, detail: 
 
 @app.get("/api/orders/stats")
 def orders_stats(from_date: date | None = None, to_date: date | None = None,
-                 user: User = Depends(require_staff), db: Session = Depends(db_session)):
+                 user: User = Depends(require_admin), db: Session = Depends(db_session)):
     if from_date and to_date and from_date > to_date:
         raise HTTPException(400, "起始日期不能晚于结束日期")
     stmt = order_stmt(from_date=from_date, to_date=to_date)
@@ -673,7 +673,7 @@ def orders_stats(from_date: date | None = None, to_date: date | None = None,
 @app.get("/api/orders")
 def list_orders(q: str = "", status: str = "", from_date: date | None = None,
                 to_date: date | None = None, page: int = 1, limit: int = 20,
-                user: User = Depends(require_staff), db: Session = Depends(db_session)):
+                user: User = Depends(require_admin), db: Session = Depends(db_session)):
     page = max(1, page)
     limit = max(1, min(100, limit))
     if from_date and to_date and from_date > to_date:
@@ -725,7 +725,7 @@ def export_orders(q: str = "", status: str = "", from_date: date | None = None,
 
 
 @app.get("/api/orders/{order_id}")
-def order_detail(order_id: int, user: User = Depends(require_staff), db: Session = Depends(db_session)):
+def order_detail(order_id: int, user: User = Depends(require_admin), db: Session = Depends(db_session)):
     o = db.get(BusinessOrder, order_id)
     if not o:
         raise HTTPException(404, "订单不存在")
@@ -927,7 +927,7 @@ def add_category(payload: CategoryIn, user: User = Depends(require_admin), db: S
 
 
 @app.get("/api/merchants/stats")
-def merchant_stats(user: User = Depends(require_staff), db: Session = Depends(db_session)):
+def merchant_stats(user: User = Depends(require_admin), db: Session = Depends(db_session)):
     merchants = list(db.scalars(select(Merchant)).all())
     categories = {c.id: c.name for c in db.scalars(select(MerchantCategory)).all()}
     status_counts = {s: sum(1 for m in merchants if m.status == s) for s in MERCHANT_STATUSES}
@@ -942,7 +942,7 @@ def merchant_stats(user: User = Depends(require_staff), db: Session = Depends(db
 
 @app.get("/api/merchants")
 def list_merchants(q: str = "", status: str = "", category_id: int | None = None,
-                   page: int = 1, limit: int = 30, user: User = Depends(require_staff),
+                   page: int = 1, limit: int = 30, user: User = Depends(require_admin),
                    db: Session = Depends(db_session)):
     if status and status not in MERCHANT_STATUSES:
         raise HTTPException(400, "审核状态不合法")
@@ -973,7 +973,7 @@ def create_merchant(payload: MerchantIn, user: User = Depends(require_admin), db
 
 
 @app.get("/api/merchants/{merchant_id}")
-def merchant_detail(merchant_id: int, user: User = Depends(require_staff), db: Session = Depends(db_session)):
+def merchant_detail(merchant_id: int, user: User = Depends(require_admin), db: Session = Depends(db_session)):
     m = db.get(Merchant, merchant_id)
     if not m:
         raise HTTPException(404, "商家不存在")
