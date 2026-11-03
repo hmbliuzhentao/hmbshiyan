@@ -1,0 +1,109 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: heimanbo-v20-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - heimanbo_v20_db:/var/lib/postgresql/data
+    command: ["postgres", "-c", "max_connections=20", "-c", "shared_buffers=32MB"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 128m
+    memswap_limit: 256m
+    logging:
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks: [data]
+
+  backend:
+    image: crpi-ik4qgw7vjkd1ccwd.cn-hangzhou.personal.cr.aliyuncs.com/heimanbo/backend:v2.1.0
+    container_name: heimanbo-v20-backend
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@heimanbo-v20-db:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      VIDEO_DIR: /data/videos
+      SITE_ORIGIN: ${PUBLIC_APP_URL:-https://test-v2.heimanbo.com}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://test-v2.heimanbo.com}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      COOKIE_DOMAIN: .heimanbo.com
+      COOKIE_SAMESITE: lax
+      COOKIE_SECURE: "true"
+      APP_ENV: production
+      OTP_DEBUG: "false"
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_SSL: ${SMTP_SSL}
+      SMS_GATEWAY_URL: ${SMS_GATEWAY_URL}
+      SMS_GATEWAY_TOKEN: ${SMS_GATEWAY_TOKEN}
+      SMS_TEMPLATE_ID: ${SMS_TEMPLATE_ID}
+      WECHAT_APP_ID: ${WECHAT_APP_ID}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET}
+      WECHAT_REDIRECT_URI: ${WECHAT_REDIRECT_URI:-https://test-v2.heimanbo.com/api/auth/wechat/callback}
+      DELETE_MEDIA_AFTER_MERCHANT_CONFIRMATION: ${DELETE_MEDIA_AFTER_MERCHANT_CONFIRMATION:-true}
+      AUTH_URL: https://auth.heimanbo.com
+      WORK_URL: https://work.heimanbo.com
+      VIDEO_URL: https://video.heimanbo.com
+      MERCHANT_URL: https://merchant.heimanbo.com
+    volumes:
+      - heimanbo_v20_videos:/data/videos
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 128m
+    memswap_limit: 256m
+    logging:
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      data: {}
+      edge:
+        aliases:
+          - heimanbo-v20-backend
+
+  frontend:
+    image: crpi-ik4qgw7vjkd1ccwd.cn-hangzhou.personal.cr.aliyuncs.com/heimanbo/frontend:v2.1.0
+    container_name: heimanbo-v20-frontend
+    restart: unless-stopped
+    environment:
+      NODE_OPTIONS: --max-old-space-size=160
+    mem_limit: 192m
+    memswap_limit: 384m
+    logging:
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      edge:
+        aliases:
+          - heimanbo-v20-frontend
+
+networks:
+  data:
+    internal: true
+  edge:
+    external: true
+    name: ${PROXY_NETWORK:-heimanbo-test_app}
+
+volumes:
+  heimanbo_v20_db:
+    name: heimanbo_v20_db
+  heimanbo_v20_videos:
+    name: heimanbo_v20_videos
