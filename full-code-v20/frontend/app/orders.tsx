@@ -47,7 +47,7 @@ export function OrdersSummary({ onOpen }:{onOpen:()=>void}) {
 }
 
 export default function OrdersPanel({user}:{user:User}) {
-  const canEdit = user.role==="admin";
+  const canEdit = user.role==="admin" || user.role==="super_admin";
   const [list,setList] = useState<Order[]>([]);
   const [stats,setStats] = useState<Stats|null>(null);
   const [owners,setOwners] = useState<User[]>([]);
