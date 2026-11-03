@@ -1,6 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import OrdersPanel, {OrdersSummary} from "./orders";
+import {MerchantsPanelV14, MerchantPortalV14} from "./merchants-v14";
+import {StaffPublishTasksV14} from "./publish-tasks-v14";
+import {StaffProjectsV13} from "./merchant-projects-v13";
+import WorkspacePanel from "./workspace-panel";
+import TeamPanel from "./team-panel";
+import "./business-integration.css";
+import "./merchant-projects-v13.css";
 
 type Panel = "auth" | "work" | "video" | "merchant" | "system";
 type User = { id:number; name:string; email:string; phone?:string; role:string; is_active:boolean };
@@ -56,6 +64,11 @@ function panelForRole(role:string):Exclude<Panel,"auth"> {
 function isPreviewHost(host:string):boolean {
   return host.toLowerCase()==="test-v2.heimanbo.com";
 }
+function isDedicatedSection(panel:Panel,section:string):boolean {
+  return (panel==="work"&&["orders","merchants","tasks","team","analytics"].includes(section)) ||
+    (panel==="video"&&section==="tasks") ||
+    (panel==="system"&&section==="users");
+}
 async function api<T=any>(path:string, init?:RequestInit):Promise<T> {
   const res=await fetch(`/api${path}`,{credentials:"include",...init});
   if(!res.ok) {
@@ -92,13 +105,21 @@ export default function Home() {
   const [showCreate,setShowCreate]=useState(false);
   const [bindForm,setBindForm]=useState({destination:"",code:""});
   const [passwordForm,setPasswordForm]=useState({current_password:"",new_password:""});
+  const [taskTab,setTaskTab]=useState<"projects"|"publish">("projects");
 
   useEffect(()=>{
     const p=detectPanel(window.location.hostname);
     setPanel(p);
     setSection(p==="merchant"?"my-orders":p==="video"?"tasks":"overview");
     api("/auth/providers").then(setProviders).catch(()=>{});
-    api<User>("/auth/me").then(setUser).catch(()=>{}).finally(()=>setChecked(true));
+    api<User>("/auth/me").then(u=>{
+      setUser(u);
+      if(isPreviewHost(window.location.hostname)) {
+        const target=panelForRole(u.role);
+        setPanel(target);
+        setSection(target==="merchant"?"my-orders":target==="video"?"tasks":"overview");
+      }
+    }).catch(()=>{}).finally(()=>setChecked(true));
   },[]);
 
   useEffect(()=>{
@@ -109,7 +130,7 @@ export default function Home() {
   const selected=groups.flatMap(g=>g.items).find(i=>i.id===section);
 
   const load=useCallback(async()=>{
-    if(!user || !selected) return;
+    if(!user || !selected || selected.kind || isDedicatedSection(panel,section)) return;
     setLoading(true);setError("");
     try {
       if(selected.kind) {
@@ -121,7 +142,7 @@ export default function Home() {
       } else setData(null);
     } catch(e) { setError((e as Error).message);setData(null); }
     finally { setLoading(false); }
-  },[user,selected]);
+  },[user,selected,panel,section]);
   useEffect(()=>{load();},[load]);
 
   function roleAllowed():boolean {
@@ -251,7 +272,12 @@ export default function Home() {
 
   if(!roleAllowed()) return <main className="boot"><section className="denied"><h1>无权访问此面板</h1><p>当前账号角色：{user.role}。此域名仅对指定角色开放。</p><button onClick={logout}>退出并切换账号</button></section></main>;
 
+  // Merchant users enter the complete order-submission and review workflow.
+  // Data isolation is enforced by the existing /api/portal/* handlers.
+  if(panel==="merchant") return <div className="v20-integrated"><MerchantPortalV14 name={user.name} onLogout={logout}/></div>;
+
   const records=toItems(data);
+  const useDedicated=isDedicatedSection(panel,section);
   const isWorkspace=Boolean(selected?.kind);
   return <main className="app-shell">
     <aside className="sidebar">
@@ -261,9 +287,18 @@ export default function Home() {
       <div className="side-bottom"><div className="user-mini"><div className="avatar">{user.name.slice(0,1)}</div><div><b>{user.name}</b><small>{user.role}</small></div></div><button className="logout" onClick={logout}>退出登录</button></div>
     </aside>
     <section className="main-area">
-      <header className="topbar"><div><span className="eyebrow">{PANEL_META[panel].domain}</span><h1>{selected?.label || PANEL_META[panel].title}</h1><p>{PANEL_META[panel].subtitle}</p></div><div className="top-actions"><span className="status-pill">系统在线</span><button onClick={()=>load()}>刷新</button><a href="https://auth.heimanbo.com">账号中心</a></div></header>
+      <header className="topbar"><div><span className="eyebrow">{PANEL_META[panel].domain}</span><h1>{selected?.label || PANEL_META[panel].title}</h1><p>{PANEL_META[panel].subtitle}</p></div><div className="top-actions"><span className="status-pill">系统在线</span><button onClick={()=>useDedicated||selected?.kind?window.location.reload():load()}>刷新</button><a href="https://auth.heimanbo.com">账号中心</a></div></header>
       {error&&<div className="alert error">{error}</div>}{notice&&<div className="alert notice">{notice}</div>}
       <div className="content">
+        {panel==="work"&&section==="orders"&&<div className="v20-integrated"><OrdersPanel user={user}/></div>}
+        {panel==="work"&&section==="merchants"&&<div className="v20-integrated"><MerchantsPanelV14 admin={["super_admin","admin"].includes(user.role)}/></div>}
+        {(panel==="work"||panel==="video")&&section==="tasks"&&<div className="v20-integrated">
+          <div className="bm-tabs"><button className={taskTab==="projects"?"active":""} onClick={()=>setTaskTab("projects")}>商家订单 · 制作交付</button><button className={taskTab==="publish"?"active":""} onClick={()=>setTaskTab("publish")}>发布任务 · 视频审核</button></div>
+          {taskTab==="projects"?<StaffProjectsV13 admin={["super_admin","admin"].includes(user.role)}/>:<StaffPublishTasksV14 admin={["super_admin","admin"].includes(user.role)}/>}
+        </div>}
+        {panel==="work"&&section==="analytics"&&<div className="v20-integrated"><div className="heading"><h1>接单数据统计</h1><p>实时读取订单收款与接单统计，不使用模拟数据。</p></div><OrdersSummary onOpen={()=>setSection("orders")}/></div>}
+        {((panel==="work"&&section==="team")||(panel==="system"&&section==="users"))&&<TeamPanel currentUser={user}/>}
+        {!useDedicated&&selected?.kind&&<WorkspacePanel key={panel+"-"+section} kind={selected.kind} label={selected.label} canWrite={["super_admin","admin","manager","producer","editor"].includes(user.role)}/>}
         {section==="overview" && <div className="overview-grid">
           <div className="welcome card"><span className="eyebrow">WELCOME BACK</span><h2>你好，{user.name}</h2><p>这里是{PANEL_META[panel].title}。请选择左侧功能开始工作。</p><div className="quick-links">{groups.flatMap(g=>g.items).slice(0,4).map(x=><button key={x.id} onClick={()=>setSection(x.id)}>{x.label} →</button>)}</div></div>
           <div className="metric card"><small>当前面板</small><strong>{panel.toUpperCase()}</strong><span>{PANEL_META[panel].domain}</span></div>
@@ -272,7 +307,7 @@ export default function Home() {
           <div className="card wide"><h3>V2.0 功能分区</h3><div className="feature-grid">{groups.flatMap(g=>g.items).map(x=><button key={x.id} onClick={()=>setSection(x.id)}><b>{x.label}</b><span>打开功能 →</span></button>)}</div></div>
           {panel==="system"&&<div className="card wide"><h3>系统状态</h3><pre>{JSON.stringify(data||{},null,2)}</pre></div>}
         </div>}
-        {section!=="overview" && <div className="card data-card">
+        {section!=="overview" && !useDedicated && !selected?.kind && <div className="card data-card">
           <div className="section-head"><div><span className="eyebrow">{panel.toUpperCase()} / MODULE</span><h2>{selected?.label}</h2><p>按当前账号权限和数据归属加载。</p></div>{isWorkspace&&<button className="primary compact" onClick={()=>setShowCreate(!showCreate)}>＋ 新建</button>}</div>
           {showCreate&&isWorkspace&&<form className="create-form" onSubmit={createItem}><label>名称<input required value={newItem.title} onChange={e=>setNewItem({...newItem,title:e.target.value})}/></label><label>说明<textarea value={newItem.body} onChange={e=>setNewItem({...newItem,body:e.target.value})}/></label><label>状态<select value={newItem.status} onChange={e=>setNewItem({...newItem,status:e.target.value})}><option value="draft">草稿</option><option value="active">进行中</option><option value="archived">归档</option></select></label><button className="primary" disabled={loading}>保存</button></form>}
           {section==="account" && data && <div className="account-grid">
