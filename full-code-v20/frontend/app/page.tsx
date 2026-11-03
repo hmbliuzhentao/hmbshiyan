@@ -305,8 +305,9 @@ export default function Home() {
           <div className="welcome card"><span className="eyebrow">WELCOME BACK</span><h2>你好，{user.name}</h2><p>这里是{PANEL_META[panel].title}。请选择左侧功能开始工作。</p><div className="quick-links">{groups.flatMap(g=>g.items).slice(0,4).map(x=><button key={x.id} onClick={()=>setSection(x.id)}>{x.label} →</button>)}</div></div>
           <div className="metric card"><small>当前面板</small><strong>{panel.toUpperCase()}</strong><span>{PANEL_META[panel].domain}</span></div>
           <div className="metric card"><small>账号角色</small><strong>{user.role}</strong><span>服务端权限验证已启用</span></div>
-          <div className="metric card"><small>认证方式</small><strong>多因素就绪</strong><span>手机号 / 邮箱 / 微信（需配置服务商）</span></div>
+          <div className="metric card"><small>{panel==="system"?"账号数量":"视频素材总量"}</small><strong>{panel==="system"?(data?.users??"—"):(data?.total_videos??"—")}</strong><span>实时业务数据</span></div>
           <div className="card wide"><h3>V2.0 功能分区</h3><div className="feature-grid">{groups.flatMap(g=>g.items).map(x=><button key={x.id} onClick={()=>setSection(x.id)}><b>{x.label}</b><span>打开功能 →</span></button>)}</div></div>
+          {panel==="work"&&<div className="v20-integrated wide"><OrdersSummary onOpen={()=>setSection("orders")}/></div>}
           {panel==="system"&&<div className="card wide"><h3>系统状态</h3><pre>{JSON.stringify(data||{},null,2)}</pre></div>}
         </div>}
         {section!=="overview" && !useDedicated && !selected?.kind && <div className="card data-card">
