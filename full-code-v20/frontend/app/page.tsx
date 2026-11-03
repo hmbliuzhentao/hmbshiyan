@@ -57,6 +57,12 @@ function homeForRole(role:string) {
   if(role==="super_admin" || role==="admin" || role==="manager" || role==="viewer") return "https://work.heimanbo.com";
   return "https://video.heimanbo.com";
 }
+function accountRoleName(role:string):string {
+  if(role==="admin"||role==="super_admin") return "管理员";
+  if(role==="merchant") return "商家";
+  if(role==="producer"||role==="editor") return "拍摄剪辑";
+  return "旧版账号（待管理员调整）";
+}
 function panelForRole(role:string):Exclude<Panel,"auth"> {
   if(role==="merchant") return "merchant";
   if(role==="super_admin" || role==="admin" || role==="manager" || role==="viewer") return "work";
@@ -271,7 +277,7 @@ export default function Home() {
     </main>
   );
 
-  if(!roleAllowed()) return <main className="boot"><section className="denied"><h1>无权访问此面板</h1><p>当前账号角色：{user.role}。此域名仅对指定角色开放。</p><button onClick={logout}>退出并切换账号</button></section></main>;
+  if(!roleAllowed()) return <main className="boot"><section className="denied"><h1>无权访问此面板</h1><p>当前账号类型：{accountRoleName(user.role)}。此域名仅对指定角色开放。</p><button onClick={logout}>退出并切换账号</button></section></main>;
 
   // Merchant users enter the complete order-submission and review workflow.
   // Data isolation is enforced by the existing /api/portal/* handlers.
@@ -285,7 +291,7 @@ export default function Home() {
       <div className="brand side-brand"><img src="/brand-logo.png" alt="黑曼波 Logo"/><div><b>黑曼波</b><small>V2.0 WORKSPACE</small></div></div>
       <div className="panel-chip"><span className="dot"/>{PANEL_META[panel].title}</div>
       <nav>{groups.map(group=><div className="nav-group" key={group.group}><small>{group.group}</small>{group.items.map(item=><button key={item.id} className={section===item.id?"nav-item active":"nav-item"} onClick={()=>{setSection(item.id);setData(null);}}><span className="nav-icon">◈</span>{item.label}</button>)}</div>)}</nav>
-      <div className="side-bottom"><div className="user-mini"><div className="avatar">{user.name.slice(0,1)}</div><div><b>{user.name}</b><small>{user.role}</small></div></div><button className="logout" onClick={logout}>退出登录</button></div>
+      <div className="side-bottom"><div className="user-mini"><div className="avatar">{user.name.slice(0,1)}</div><div><b>{user.name}</b><small>{accountRoleName(user.role)}</small></div></div><button className="logout" onClick={logout}>退出登录</button></div>
     </aside>
     <section className="main-area">
       <header className="topbar"><div><span className="eyebrow">{PANEL_META[panel].domain}</span><h1>{selected?.label || PANEL_META[panel].title}</h1><p>{PANEL_META[panel].subtitle}</p></div><div className="top-actions"><span className="status-pill">系统在线</span><button onClick={()=>useDedicated||selected?.kind?window.location.reload():load()}>刷新</button><a href="https://auth.heimanbo.com">账号中心</a></div></header>
@@ -304,7 +310,7 @@ export default function Home() {
         {section==="overview" && <div className="overview-grid">
           <div className="welcome card"><span className="eyebrow">WELCOME BACK</span><h2>你好，{user.name}</h2><p>这里是{PANEL_META[panel].title}。请选择左侧功能开始工作。</p><div className="quick-links">{groups.flatMap(g=>g.items).slice(0,4).map(x=><button key={x.id} onClick={()=>setSection(x.id)}>{x.label} →</button>)}</div></div>
           <div className="metric card"><small>当前面板</small><strong>{panel.toUpperCase()}</strong><span>{PANEL_META[panel].domain}</span></div>
-          <div className="metric card"><small>账号角色</small><strong>{user.role}</strong><span>服务端权限验证已启用</span></div>
+          <div className="metric card"><small>账号角色</small><strong>{accountRoleName(user.role)}</strong><span>服务端权限验证已启用</span></div>
           <div className="metric card"><small>{panel==="system"?"账号数量":"视频素材总量"}</small><strong>{panel==="system"?(data?.users??"—"):(data?.total_videos??"—")}</strong><span>实时业务数据</span></div>
           <div className="card wide"><h3>V2.0 功能分区</h3><div className="feature-grid">{groups.flatMap(g=>g.items).map(x=><button key={x.id} onClick={()=>setSection(x.id)}><b>{x.label}</b><span>打开功能 →</span></button>)}</div></div>
           {panel==="work"&&<div className="v20-integrated wide"><OrdersSummary onOpen={()=>setSection("orders")}/></div>}
