@@ -301,7 +301,7 @@ export default function Home() {
         {panel==="work"&&section==="merchants"&&<div className="v20-integrated"><MerchantsPanelV14 admin={["super_admin","admin"].includes(user.role)}/></div>}
         {(panel==="work"||panel==="video")&&section==="tasks"&&<div className="v20-integrated">
           <div className="bm-tabs"><button className={taskTab==="projects"?"active":""} onClick={()=>setTaskTab("projects")}>商家订单 · 制作交付</button><button className={taskTab==="publish"?"active":""} onClick={()=>setTaskTab("publish")}>发布任务 · 视频审核</button></div>
-          {taskTab==="projects"?<StaffProjectsV13 admin={["super_admin","admin"].includes(user.role)}/>:<StaffPublishTasksV14 admin={["super_admin","admin"].includes(user.role)}/>}
+          {taskTab==="projects"?<StaffProjectsV13 admin={["super_admin","admin"].includes(user.role)} canProduce={["super_admin","admin","producer","editor"].includes(user.role)}/>:<StaffPublishTasksV14 admin={["super_admin","admin","producer","editor"].includes(user.role)}/>}
         </div>}
         {panel==="video"&&section==="videos"&&<VideoLibrary currentUser={user}/>}
         {panel==="work"&&section==="analytics"&&<div className="v20-integrated"><div className="heading"><h1>接单数据统计</h1><p>实时读取订单收款与接单统计，不使用模拟数据。</p></div><OrdersSummary onOpen={()=>setSection("orders")}/></div>}
