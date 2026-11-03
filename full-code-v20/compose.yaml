@@ -24,7 +24,7 @@ services:
     networks: [data]
 
   backend:
-    image: crpi-ik4qgw7vjkd1ccwd.cn-hangzhou.personal.cr.aliyuncs.com/heimanbo/backend:v2.0.0
+    image: crpi-ik4qgw7vjkd1ccwd.cn-hangzhou.personal.cr.aliyuncs.com/heimanbo/backend:v2.0.2
     container_name: heimanbo-v20-backend
     restart: unless-stopped
     environment:
@@ -77,7 +77,7 @@ services:
           - heimanbo-v20-backend
 
   frontend:
-    image: crpi-ik4qgw7vjkd1ccwd.cn-hangzhou.personal.cr.aliyuncs.com/heimanbo/frontend:v2.0.0
+    image: crpi-ik4qgw7vjkd1ccwd.cn-hangzhou.personal.cr.aliyuncs.com/heimanbo/frontend:v2.0.2
     container_name: heimanbo-v20-frontend
     restart: unless-stopped
     environment:
