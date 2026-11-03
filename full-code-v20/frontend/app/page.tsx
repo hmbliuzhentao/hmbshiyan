@@ -7,6 +7,7 @@ import {StaffPublishTasksV14} from "./publish-tasks-v14";
 import {StaffProjectsV13} from "./merchant-projects-v13";
 import WorkspacePanel from "./workspace-panel";
 import TeamPanel from "./team-panel";
+import VideoLibrary from "./video-library";
 import "./business-integration.css";
 import "./merchant-projects-v13.css";
 
@@ -66,7 +67,7 @@ function isPreviewHost(host:string):boolean {
 }
 function isDedicatedSection(panel:Panel,section:string):boolean {
   return (panel==="work"&&["orders","merchants","tasks","team","analytics"].includes(section)) ||
-    (panel==="video"&&section==="tasks") ||
+    (panel==="video"&&["tasks","videos"].includes(section)) ||
     (panel==="system"&&section==="users");
 }
 async function api<T=any>(path:string, init?:RequestInit):Promise<T> {
@@ -296,6 +297,7 @@ export default function Home() {
           <div className="bm-tabs"><button className={taskTab==="projects"?"active":""} onClick={()=>setTaskTab("projects")}>商家订单 · 制作交付</button><button className={taskTab==="publish"?"active":""} onClick={()=>setTaskTab("publish")}>发布任务 · 视频审核</button></div>
           {taskTab==="projects"?<StaffProjectsV13 admin={["super_admin","admin"].includes(user.role)}/>:<StaffPublishTasksV14 admin={["super_admin","admin"].includes(user.role)}/>}
         </div>}
+        {panel==="video"&&section==="videos"&&<VideoLibrary currentUser={user}/>}
         {panel==="work"&&section==="analytics"&&<div className="v20-integrated"><div className="heading"><h1>接单数据统计</h1><p>实时读取订单收款与接单统计，不使用模拟数据。</p></div><OrdersSummary onOpen={()=>setSection("orders")}/></div>}
         {((panel==="work"&&section==="team")||(panel==="system"&&section==="users"))&&<TeamPanel currentUser={user}/>}
         {!useDedicated&&selected?.kind&&<WorkspacePanel key={panel+"-"+section} kind={selected.kind} label={selected.label} canWrite={["super_admin","admin","manager","producer","editor"].includes(user.role)}/>}
