@@ -37,7 +37,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install -r full-code-v20/backend/requirements.txt
+        run: pip install -r full-code-v20/backend/requirements.txt httpx2
       - name: Test V2 authentication and tenant isolation
         run: python full-code-v20/tests/test_v20_auth_workspace.py
       - name: Test merchant order workflows
