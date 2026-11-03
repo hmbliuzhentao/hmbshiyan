@@ -287,6 +287,13 @@ def require_admin(user: User = Depends(current_user)) -> User:
     return user
 
 
+def require_production(user: User = Depends(current_user)) -> User:
+    """Shooting and editing share one producer account type; administrators can also deliver."""
+    if user.role not in ("super_admin", "admin", "producer", "editor"):
+        raise HTTPException(403, "需要管理员或拍摄剪辑账号")
+    return user
+
+
 class LoginIn(BaseModel):
     identifier: str | None = None
     email: str | None = None
@@ -297,7 +304,7 @@ class UserIn(BaseModel):
     email: str
     name: str = Field(min_length=1, max_length=80)
     password: str = Field(min_length=12, max_length=128)
-    role: str = "viewer"
+    role: str = "producer"
 
 
 def user_out(u: User):
@@ -482,7 +489,7 @@ def list_users(admin: User = Depends(require_admin), db: Session = Depends(db_se
 @app.post("/api/users", status_code=201)
 def create_user(payload: UserIn, admin: User = Depends(require_admin), db: Session = Depends(db_session)):
     email = payload.email.lower().strip()
-    if "@" not in email or payload.role not in ("admin", "manager", "producer", "editor", "viewer"):
+    if "@" not in email or payload.role not in ("admin", "producer"):
         raise HTTPException(400, "邮箱或员工角色不合法")
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(409, "邮箱已存在")
@@ -492,6 +499,34 @@ def create_user(payload: UserIn, admin: User = Depends(require_admin), db: Sessi
     db.commit()
     db.refresh(u)
     return user_out(u)
+
+
+class UserRoleChangeIn(BaseModel):
+    role: str
+
+
+@app.patch("/api/users/{user_id}/role")
+def change_staff_role(user_id: int, payload: UserRoleChangeIn, request: Request,
+                      admin: User = Depends(require_admin), db: Session = Depends(db_session)):
+    """Allow an administrator to move legacy staff to one of the two internal account types."""
+    if payload.role not in ("admin", "producer"):
+        raise HTTPException(400, "内部账号只支持管理员或拍摄剪辑；商家账号请在商家管理创建")
+    target = db.scalar(select(User).where(User.id == user_id).with_for_update())
+    if target is None:
+        raise HTTPException(404, "账号不存在")
+    if target.role == "merchant":
+        raise HTTPException(403, "商家账号不可转为内部账号")
+    if target.id == admin.id and payload.role != "admin":
+        raise HTTPException(409, "不能取消自己的管理员权限")
+    before = target.role
+    target.role = payload.role
+    from .v20 import audit
+    audit(db, admin.id, "user.role_change", "user", target.id,
+          {"old_role": before, "new_role": payload.role},
+          request.client.host if request.client else "")
+    db.commit()
+    db.refresh(target)
+    return user_out(target)
 
 
 # ===== Order management V1.1: order ledger, payments, aggregate stats and CSV =====
