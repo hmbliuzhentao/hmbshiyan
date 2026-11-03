@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from .main import (
     Base, BusinessOrder, Merchant, User, Video, DATA_DIR, current_user,
-    db_session, get_merchant_of_user, require_staff, require_admin, iso,
+    db_session, get_merchant_of_user, require_staff, require_admin, require_production, iso,
     upload_video,
 )
 
@@ -253,13 +253,13 @@ def review_history(task_id: int, user: User = Depends(require_staff), db: Sessio
 
 @router.post("/staff/publish-tasks/{task_id}/videos", status_code=201)
 def attach_library_video(task_id: int, payload: AttachVideoIn,
-                         user: User = Depends(require_admin), db: Session = Depends(db_session)):
+                         user: User = Depends(require_production), db: Session = Depends(db_session)):
     return attach(db, staff_task(db, task_id), payload.video_id, user)
 
 
 @router.post("/staff/publish-tasks/{task_id}/upload", status_code=201)
 async def upload_and_attach(task_id: int, file: UploadFile = File(...),
-                            user: User = Depends(require_admin), db: Session = Depends(db_session)):
+                            user: User = Depends(require_production), db: Session = Depends(db_session)):
     task = staff_task(db, task_id)
     require_mutable(task)
     created = await upload_video(file=file, user=user, db=db)
@@ -268,7 +268,7 @@ async def upload_and_attach(task_id: int, file: UploadFile = File(...),
 
 @router.post("/staff/publish-tasks/{task_id}/videos/{link_id}/replace")
 async def replace_video(task_id: int, link_id: int, file: UploadFile = File(...),
-                        user: User = Depends(require_admin), db: Session = Depends(db_session)):
+                        user: User = Depends(require_production), db: Session = Depends(db_session)):
     task = staff_task(db, task_id)
     require_mutable(task)
     old = db.scalar(select(PublishVideo).where(PublishVideo.id == link_id,
