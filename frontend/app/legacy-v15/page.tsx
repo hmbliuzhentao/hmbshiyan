@@ -42,10 +42,11 @@ function siteMode(host: string, search = ""): SiteMode {
   }
   return "test";
 }
+// Temporary stable targets until the independent production subdomains have DNS/TLS.
 const domainLinks = {
-  admin: "https://heimanbo.com",
-  video: "https://video.heimanbo.com",
-  deliver: "https://deliver.heimanbo.com",
+  admin: "https://test-v2.heimanbo.com/?workspace=admin",
+  video: "https://test-v2.heimanbo.com/?workspace=video",
+  deliver: "https://test-v2.heimanbo.com/?workspace=deliver",
 };
 const menu=navGroups.flatMap(g=>g.items);
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
