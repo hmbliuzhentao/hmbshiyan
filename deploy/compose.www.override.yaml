@@ -1,0 +1,12 @@
+# Final override for www.heimanbo.com.
+# Intentionally does not modify PostgreSQL, volume mounts, or Caddy services.
+services:
+  backend:
+    image: crpi-ik4qgw7vjkd1ccwd.cn-hangzhou.personal.cr.aliyuncs.com/heimanbo/backend:v2.1.2-www1
+    environment:
+      SITE_ORIGIN: https://www.heimanbo.com
+      PUBLIC_APP_URL: https://www.heimanbo.com
+      ALLOWED_ORIGINS: https://www.heimanbo.com,https://test-v2.heimanbo.com
+      WECHAT_REDIRECT_URI: https://www.heimanbo.com/api/auth/wechat/callback
+  frontend:
+    image: crpi-ik4qgw7vjkd1ccwd.cn-hangzhou.personal.cr.aliyuncs.com/heimanbo/frontend:v2.1.2-www1
