@@ -317,7 +317,8 @@ def current_user(request: Request, db: Session = Depends(db_session)) -> User:
     host = (request.url.hostname or "").lower()
     panel_roles = {
         "heimanbo.com": {"admin"},
-        "www.heimanbo.com": {"admin"},
+        # www.heimanbo.com hosts admin, video and delivery in one origin.
+        # Each sensitive API endpoint still checks roles and tenant ownership.
         "work.heimanbo.com": {"admin"},
         "deliver.heimanbo.com": {"admin", "producer", "merchant"},
         "video.heimanbo.com": {"admin", "producer"},
