@@ -2,7 +2,7 @@
     email {$ACME_EMAIL}
 }
 
-test-v2.heimanbo.com {
+test-v2.heimanbo.com, www.heimanbo.com {
     encode zstd gzip
     request_body {
         max_size 110MB
