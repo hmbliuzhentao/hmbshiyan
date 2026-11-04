@@ -30,10 +30,16 @@ const navGroups:NavGroup[]=[
 // A single backend serves three role-aware surfaces. The test domain retains
 // the full legacy role-aware view until production DNS/TLS is configured.
 type SiteMode = "admin" | "video" | "deliver" | "test";
-function siteMode(host: string): SiteMode {
+function siteMode(host: string, search = ""): SiteMode {
   if (host === "heimanbo.com" || host === "www.heimanbo.com" || host === "work.heimanbo.com") return "admin";
   if (host === "video.heimanbo.com") return "video";
   if (host === "deliver.heimanbo.com") return "deliver";
+  // Before the production subdomains have DNS/TLS, make the three workspaces
+  // directly reachable on the existing test host without changing server routing.
+  if (host === "test-v2.heimanbo.com") {
+    const view = new URLSearchParams(search).get("workspace");
+    if (view === "admin" || view === "video" || view === "deliver") return view;
+  }
   return "test";
 }
 const domainLinks = {
@@ -57,6 +63,9 @@ export default function Home() {
   const [user, setUser] = useState<User|null>(null);
   const [checked, setChecked] = useState(false);
   const [site, setSite] = useState<SiteMode>("test");
+  const [testHost, setTestHost] = useState(false);
+  const workspaceHref = (target: "admin" | "video" | "deliver") =>
+    testHost ? `/?workspace=${target}` : domainLinks[target];
   const [systemEvents, setSystemEvents] = useState<{id:number;action:string;target_type:string;target_id:string;created_at:string;actor_id:number}[]>([]);
   const [section, setSection] = useState<Section>("dashboard");
   const [orderTab,setOrderTab] = useState<"ledger"|"requests">("ledger");
@@ -77,8 +86,14 @@ export default function Home() {
   const [activeVideo, setActiveVideo] = useState<Video|null>(null);
 
   useEffect(() => {
-    setSite(siteMode(window.location.hostname));
-    api<User>("/auth/me").then(u => { setUser(u); setSection(u.role === "producer" ? "publish" : "dashboard"); }).catch(() => {}).finally(() => setChecked(true));
+    const host = window.location.hostname;
+    const initialSite = siteMode(host, window.location.search);
+    setTestHost(host === "test-v2.heimanbo.com");
+    setSite(initialSite);
+    api<User>("/auth/me").then(u => {
+      setUser(u);
+      setSection(u.role === "producer" || initialSite === "video" ? "publish" : initialSite === "deliver" ? "upload" : "dashboard");
+    }).catch(() => {}).finally(() => setChecked(true));
     api<{wechat:boolean}>("/auth/providers").then(p => setWechatReady(!!p.wechat)).catch(() => setWechatReady(false));
   }, []);
   useEffect(() => {
@@ -107,7 +122,7 @@ export default function Home() {
 
   async function login(e: FormEvent) {
     e.preventDefault(); setLoading(true); setError("");
-    try { const u = await api<User>("/auth/login", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({email,password}) }); setUser(u); setPassword(""); setSection(u.role === "producer" ? "publish" : "dashboard"); }
+    try { const u = await api<User>("/auth/login", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({email,password}) }); setUser(u); setPassword(""); setSection(u.role === "producer" || site === "video" ? "publish" : site === "deliver" ? "upload" : "dashboard"); }
     catch (e) { setError((e as Error).message); } finally { setLoading(false); }
   }
   async function logout() { await api("/auth/logout", {method:"POST"}); setUser(null); setSection("dashboard"); }
@@ -167,7 +182,7 @@ export default function Home() {
   return <div className="shell">
     <aside className="sidebar"><div className="brand"><img className="bm-sidebar-logo" src="/brand-logo.png" alt="黑曼波 Logo" /><span>黑曼波工作台<small>视频与接单管理</small></span></div>
       <nav aria-label="工作台导航">{navGroups.map(g=>({...g,items:g.items.filter(m=>!m.adminOnly||user.role==="admin")})).filter(g=>g.items.length>0).map(g=><div key={g.title} className="nav-group"><div className="nav-group-title">{g.title}</div>{g.items.map(m=><button key={m.id} onClick={()=>{setSection(m.id);setPage(1);setNotice("");}} aria-current={section===m.id?"page":undefined} className={section===m.id?"nav active":"nav"}>{m.label}</button>)}</div>)}</nav>
-      {user.role==="admin"&&<div className="sidebar-quick"><span>快捷入口</span><a href={domainLinks.video} target="_blank" rel="noopener noreferrer">视频工作台 ↗</a><a href={domainLinks.deliver} target="_blank" rel="noopener noreferrer">交付中心 ↗</a></div>}
+      {user.role==="admin"&&<div className="sidebar-quick"><span>快捷入口</span>{site!=="test"&&<a href={workspaceHref("admin")}>返回管理总览</a>}<a href={workspaceHref("video")}>视频工作台 ↗</a><a href={workspaceHref("deliver")}>交付中心 ↗</a></div>}
       <div className="sidebar-foot">黑曼波工作台 V2.1.2 · 统一总后台<br/><small>同一套账号与业务数据</small></div>
     </aside>
     <main className="main"><header className="topbar"><div><strong>{menu.find(m=>m.id===section)?.label}</strong><span className="muted"> / 黑曼波工作台</span></div><div className="user">{user.name} <span className="role">{user.role==="admin"?"管理员":user.role==="producer"?"拍摄剪辑":"商家"}</span> <button className="textbtn" onClick={logout}>退出</button></div></header>
