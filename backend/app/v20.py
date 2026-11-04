@@ -265,14 +265,15 @@ def session_cookie(response, user: User, request: Request, db: Session):
 
 
 def public_app_url():
-    return os.getenv("PUBLIC_APP_URL", "https://test-v2.heimanbo.com").rstrip("/")
+    return os.getenv("PUBLIC_APP_URL", "https://www.heimanbo.com").rstrip("/")
 
 
 def role_home(user: User):
     # V2.1 uses one public domain with role-specific server-rendered workspaces.
     # Separate subdomains remain available as an optional future deployment mode.
     if os.getenv("PUBLIC_APP_URL"):
-        return public_app_url()
+        workspace = "deliver" if user.role == "merchant" else "video" if user.role == "producer" else "admin"
+        return f"{public_app_url()}/?workspace={workspace}"
     if user.role == "merchant":
         return os.getenv("MERCHANT_URL", "https://merchant.heimanbo.com")
     if user.role == "admin":
