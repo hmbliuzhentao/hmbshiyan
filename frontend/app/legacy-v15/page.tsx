@@ -31,22 +31,23 @@ const navGroups:NavGroup[]=[
 // the full legacy role-aware view until production DNS/TLS is configured.
 type SiteMode = "admin" | "video" | "deliver" | "test";
 function siteMode(host: string, search = ""): SiteMode {
-  if (host === "heimanbo.com" || host === "www.heimanbo.com" || host === "work.heimanbo.com") return "admin";
-  if (host === "video.heimanbo.com") return "video";
-  if (host === "deliver.heimanbo.com") return "deliver";
-  // Before the production subdomains have DNS/TLS, make the three workspaces
-  // directly reachable on the existing test host without changing server routing.
-  if (host === "test-v2.heimanbo.com") {
+  // Both www (primary domain) and test-v2 serve all three workspaces.
+  // Server-side API permissions still enforce admin/staff/merchant roles.
+  if (host === "www.heimanbo.com" || host === "test-v2.heimanbo.com") {
     const view = new URLSearchParams(search).get("workspace");
     if (view === "admin" || view === "video" || view === "deliver") return view;
+    return host === "www.heimanbo.com" ? "admin" : "test";
   }
+  if (host === "heimanbo.com" || host === "work.heimanbo.com") return "admin";
+  if (host === "video.heimanbo.com") return "video";
+  if (host === "deliver.heimanbo.com") return "deliver";
   return "test";
 }
-// Temporary stable targets until the independent production subdomains have DNS/TLS.
+// Canonical domain: one HTTPS host, three role-specific workspaces.
 const domainLinks = {
-  admin: "https://test-v2.heimanbo.com/?workspace=admin",
-  video: "https://test-v2.heimanbo.com/?workspace=video",
-  deliver: "https://test-v2.heimanbo.com/?workspace=deliver",
+  admin: "https://www.heimanbo.com/?workspace=admin",
+  video: "https://www.heimanbo.com/?workspace=video",
+  deliver: "https://www.heimanbo.com/?workspace=deliver",
 };
 const menu=navGroups.flatMap(g=>g.items);
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
@@ -64,9 +65,9 @@ export default function Home() {
   const [user, setUser] = useState<User|null>(null);
   const [checked, setChecked] = useState(false);
   const [site, setSite] = useState<SiteMode>("test");
-  const [testHost, setTestHost] = useState(false);
+  const [sameHost, setSameHost] = useState(false);
   const workspaceHref = (target: "admin" | "video" | "deliver") =>
-    testHost ? `/?workspace=${target}` : domainLinks[target];
+    sameHost ? `/?workspace=${target}` : domainLinks[target];
   const [systemEvents, setSystemEvents] = useState<{id:number;action:string;target_type:string;target_id:string;created_at:string;actor_id:number}[]>([]);
   const [section, setSection] = useState<Section>("dashboard");
   const [orderTab,setOrderTab] = useState<"ledger"|"requests">("ledger");
@@ -89,7 +90,7 @@ export default function Home() {
   useEffect(() => {
     const host = window.location.hostname;
     const initialSite = siteMode(host, window.location.search);
-    setTestHost(host === "test-v2.heimanbo.com");
+    setSameHost(host === "www.heimanbo.com" || host === "test-v2.heimanbo.com");
     setSite(initialSite);
     api<User>("/auth/me").then(u => {
       setUser(u);
