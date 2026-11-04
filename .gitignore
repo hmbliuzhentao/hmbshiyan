@@ -1,0 +1,22 @@
+# No secrets, private material or build outputs in GitHub
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.log
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.db
+.git/

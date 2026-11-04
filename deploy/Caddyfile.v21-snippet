@@ -1,0 +1,19 @@
+# V2.1.0: replace the existing test-v2.heimanbo.com site block with this block.
+# Keep the existing Caddy container and network; do not start a second Caddy.
+(heimanbo_v21_panel) {
+    encode zstd gzip
+    request_body {
+        max_size 110MB
+    }
+    @api path /api/*
+    handle @api {
+        reverse_proxy heimanbo-v20-backend:8000
+    }
+    handle {
+        reverse_proxy heimanbo-v20-frontend:3000
+    }
+}
+
+test-v2.heimanbo.com {
+    import heimanbo_v21_panel
+}

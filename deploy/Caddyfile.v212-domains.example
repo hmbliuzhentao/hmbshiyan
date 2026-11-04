@@ -1,0 +1,31 @@
+# V2.1.2 reference only — apply after DNS points to this VPS and TLS is ready.
+# Merge these site blocks into the existing Caddyfile. Do NOT launch a second Caddy.
+# Keep the current /api/* -> backend and rest -> frontend paths.
+(heimanbo_v212_sites) {
+    encode zstd gzip
+    request_body {
+        max_size 110MB
+    }
+    @api path /api/*
+    handle @api {
+        reverse_proxy heimanbo-v20-backend:8000
+    }
+    handle {
+        reverse_proxy heimanbo-v20-frontend:3000
+    }
+}
+
+test-v2.heimanbo.com {
+    import heimanbo_v212_sites
+}
+heimanbo.com, www.heimanbo.com {
+    import heimanbo_v212_sites
+}
+video.heimanbo.com {
+    import heimanbo_v212_sites
+}
+deliver.heimanbo.com {
+    import heimanbo_v212_sites
+}
+# Old merchant.heimanbo.com may be retained as a temporary redirect only;
+# do not expose a separate merchant management system in this release.
