@@ -36,8 +36,8 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       VIDEO_DIR: /data/videos
-      SITE_ORIGIN: ${PUBLIC_APP_URL:-https://test-v2.heimanbo.com}
-      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://test-v2.heimanbo.com}
+      SITE_ORIGIN: ${PUBLIC_APP_URL:-https://www.heimanbo.com}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://www.heimanbo.com}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       COOKIE_DOMAIN: .heimanbo.com
       COOKIE_SAMESITE: lax
@@ -55,12 +55,12 @@ services:
       SMS_TEMPLATE_ID: ${SMS_TEMPLATE_ID}
       WECHAT_APP_ID: ${WECHAT_APP_ID}
       WECHAT_APP_SECRET: ${WECHAT_APP_SECRET}
-      WECHAT_REDIRECT_URI: ${WECHAT_REDIRECT_URI:-https://test-v2.heimanbo.com/api/auth/wechat/callback}
+      WECHAT_REDIRECT_URI: ${WECHAT_REDIRECT_URI:-https://www.heimanbo.com/api/auth/wechat/callback}
       DELETE_MEDIA_AFTER_MERCHANT_CONFIRMATION: ${DELETE_MEDIA_AFTER_MERCHANT_CONFIRMATION:-true}
-      AUTH_URL: https://auth.heimanbo.com
-      WORK_URL: https://work.heimanbo.com
-      VIDEO_URL: https://video.heimanbo.com
-      MERCHANT_URL: https://merchant.heimanbo.com
+      AUTH_URL: https://www.heimanbo.com
+      WORK_URL: https://www.heimanbo.com/?workspace=admin
+      VIDEO_URL: https://www.heimanbo.com/?workspace=video
+      MERCHANT_URL: https://www.heimanbo.com/?workspace=deliver
     volumes:
       - heimanbo_v20_videos:/data/videos
     depends_on:
